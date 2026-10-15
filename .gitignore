@@ -1,0 +1,40 @@
+# OS
+Thumbs.db
+Desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+coverage/
+*.log
+
+# Project temp
+tmp/
+
+# Local data
+*.sqlite3
+*.db
+
+# Local research, not part of the project
+therapy-clinic-saas-competitors/
