@@ -5,7 +5,7 @@
 **Layout:** sections 1 to 7 are Part 1 (Groups A and B). Sections 8 to 19 are Part 2 (Groups C to I and the summaries). Sections 20 to 23 are explanatory additions and process notes.
 **Nothing is summarized:** every table definition, index, note and table from both source messages is reproduced in full. Explanations are added around the source text, and source notes are quoted word for word.
 
-> **Status:** This is design text only. No Django models, migrations, SQL files or implementation code have been created. Django's ORM cannot express composite foreign keys natively, so any implementation needs explicit SQL migrations (recorded in the constraint-enforcement summary, section 16).
+> **Status:** Design text. Implementation has started (2026-11-18): tenant, app_user, tenant_membership, membership_grant, patient (partial), clinical_assignment, clinical_supervision and audit_event exist as Django models and migrations. Database roles, privileges and tenant isolation as implemented are documented in backend/README.md, which takes precedence over this file where they differ. Django's ORM cannot express composite foreign keys natively, so they are added with SQL migrations.
 
 ## Table of contents
 
@@ -92,7 +92,7 @@ Now the database itself rejects any cross-tenant link.
 
 **Why NULL does not bypass this.** PostgreSQL uses `MATCH SIMPLE` by default: if any column of the child's FK tuple is `NULL`, the check is skipped. This is fine here for two reasons:
 
-- A **nullable** reference column (for example `supervisor_membership_id`) being `NULL` means "no supervisor", so skipping the check is the desired behaviour.
+- A **nullable** reference column (for example `progress_entry.treatment_goal_id`) being `NULL` means "not tied to a goal", so skipping the check is the desired behaviour.
 - `tenant_id` is `NOT NULL` on tenant-owned tables, so the tenant half of the tuple can never be `NULL`. Nobody can use a `NULL` tenant to dodge the match.
 
 ### 2.2 Why RESTRICT everywhere
@@ -118,7 +118,7 @@ erDiagram
 
     Tenant ||--o{ Patient               : "owns"
     Patient ||--o{ ClinicalAssignment   : "assigned through"
-    TenantMembership ||--o{ ClinicalAssignment : "therapist or supervisor"
+    TenantMembership ||--o{ ClinicalAssignment : "therapist"
     Patient ||--o{ ClinicalSupervision        : "supervised for"
     TenantMembership ||--o{ ClinicalSupervision : "supervisor / supervisee"
     TenantMembership ||--o{ SupervisoryOperationalScope : "supervisor / supervisee"
@@ -612,7 +612,7 @@ CREATE INDEX ix_patient_tenant_name
 
 ### 7.2 ClinicalAssignment
 
-**Purpose:** records which therapist (and optional supervisor) is responsible for a patient, in which role, and for what period. Implements D-N5, D-N8 and X-1.
+**Purpose:** records which therapist is responsible for a patient, in which role, and for what period. Implements D-N5, D-N8 and X-1. Supervision is not stored here; ClinicalSupervision is its only source of truth (issue N4).
 
 ```sql
 CREATE TABLE clinical_assignment (
@@ -622,7 +622,6 @@ CREATE TABLE clinical_assignment (
     therapist_membership_id UUID NOT NULL,
     role_in_case            TEXT NOT NULL
                             CHECK (role_in_case IN ('primary','co_therapist','observing')),
-    supervisor_membership_id UUID,
     started_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     ended_at                TIMESTAMPTZ,
     CONSTRAINT fk_ca_patient
@@ -630,9 +629,6 @@ CREATE TABLE clinical_assignment (
         REFERENCES patient (id, tenant_id) ON DELETE RESTRICT,
     CONSTRAINT fk_ca_therapist
         FOREIGN KEY (therapist_membership_id, tenant_id)
-        REFERENCES tenant_membership (id, tenant_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_ca_supervisor
-        FOREIGN KEY (supervisor_membership_id, tenant_id)
         REFERENCES tenant_membership (id, tenant_id) ON DELETE RESTRICT,
     CONSTRAINT ck_ca_dates CHECK (ended_at IS NULL OR ended_at >= started_at),
     CONSTRAINT uq_ca_id_patient_tenant UNIQUE (id, patient_id, tenant_id)
@@ -645,9 +641,6 @@ CREATE UNIQUE INDEX uq_ca_active_pair
     WHERE ended_at IS NULL;
 CREATE INDEX ix_ca_therapist_active
     ON clinical_assignment (therapist_membership_id, ended_at);
-CREATE INDEX ix_ca_supervisor_active
-    ON clinical_assignment (supervisor_membership_id, ended_at)
-    WHERE supervisor_membership_id IS NOT NULL;
 ```
 
 **Role values**
@@ -660,15 +653,15 @@ CREATE INDEX ix_ca_supervisor_active
 
 **Constraints and indexes explained**
 
-- Three composite FKs ensure the patient, the therapist and the supervisor all belong to the same tenant as the assignment.
+- Two composite FKs ensure the patient and the therapist belong to the same tenant as the assignment.
 - `uq_ca_one_active_primary`: **at most one active primary** per patient. Because the index is partial (`role_in_case = 'primary' AND ended_at IS NULL`), historical primaries are unrestricted. Note that it enforces "at most one", while the ER notes say "exactly one". The "at least one" half is not enforced by the schema.
 - `uq_ca_active_pair`: the same therapist cannot hold two active assignments on one patient.
-- `ix_ca_therapist_active`, `ix_ca_supervisor_active`: speed up "which patients does this therapist or supervisor have?".
+- `ix_ca_therapist_active`: speeds up "which patients does this therapist have?".
 - `uq_ca_id_patient_tenant`: reserved for future composite FKs. **No table currently references it** (a note-to-assignment link could use it later).
 
 **Design notes**
 
-- When `supervisor_membership_id` is `NULL`, `MATCH SIMPLE` skips the supervisor FK. That is correct.
+- **No supervisor column (issue N4, 2026-11-18).** The earlier `supervisor_membership_id` column duplicated `clinical_supervision` and was removed. Clinical supervision is recorded only in `clinical_supervision`.
 - **Insert-only, with one allowed update.** Rows are never edited; the only permitted mutation is setting `ended_at` once. Enforcing "once" requires a trigger (Section 12 in Part 2 of the source; the trigger is `enforce_assignment_ended_once`, section 16.2 of this file).
 - **Reassignment** is done by ending the old row and inserting a new one, which preserves the history that decisions D2 and D3 rely on.
 - Nothing in the schema checks that the assigned therapist actually holds the `therapist` role in `tenant_membership.roles`. That is an application rule.
@@ -1801,7 +1794,7 @@ All relationships in the ER diagram (Part 1, Section 1, which is section 3 of th
 | TenantMembership–MembershipGrant | membership_grant.membership_id + tenant_id |
 | Tenant–Patient | patient.tenant_id → tenant.id |
 | Patient–ClinicalAssignment | clinical_assignment.patient_id + tenant_id |
-| TenantMembership–ClinicalAssignment | clinical_assignment.therapist_membership_id + tenant_id, and supervisor_membership_id + tenant_id |
+| TenantMembership–ClinicalAssignment | clinical_assignment.therapist_membership_id + tenant_id |
 | Patient–ClinicalSupervision | clinical_supervision.patient_id + tenant_id |
 | TenantMembership–ClinicalSupervision | clinical_supervision.supervisor_membership_id + tenant_id, and therapist_membership_id + tenant_id |
 | TenantMembership–SupervisoryOperationalScope | supervisory_operational_scope.supervisor_membership_id and supervisee_membership_id, both + tenant_id |

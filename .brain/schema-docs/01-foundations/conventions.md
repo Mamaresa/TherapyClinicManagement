@@ -27,7 +27,7 @@ Now the database itself rejects any cross-tenant link.
 
 **Why NULL does not bypass this.** PostgreSQL uses `MATCH SIMPLE` by default: if any column of the child's FK tuple is `NULL`, the check is skipped. This is fine here for two reasons:
 
-- A **nullable** reference column (for example `supervisor_membership_id`) being `NULL` means "no supervisor", so skipping the check is the desired behaviour.
+- A **nullable** reference column (for example `progress_entry.treatment_goal_id`) being `NULL` means "not tied to a goal", so skipping the check is the desired behaviour.
 - `tenant_id` is `NOT NULL` on tenant-owned tables, so the tenant half of the tuple can never be `NULL`. Nobody can use a `NULL` tenant to dodge the match.
 
 ## Why RESTRICT everywhere

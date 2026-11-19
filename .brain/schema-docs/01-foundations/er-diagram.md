@@ -17,7 +17,7 @@ erDiagram
 
     Tenant ||--o{ Patient               : "owns"
     Patient ||--o{ ClinicalAssignment   : "assigned through"
-    TenantMembership ||--o{ ClinicalAssignment : "therapist or supervisor"
+    TenantMembership ||--o{ ClinicalAssignment : "therapist"
     Patient ||--o{ ClinicalSupervision        : "supervised for"
     TenantMembership ||--o{ ClinicalSupervision : "supervisor / supervisee"
     TenantMembership ||--o{ SupervisoryOperationalScope : "supervisor / supervisee"

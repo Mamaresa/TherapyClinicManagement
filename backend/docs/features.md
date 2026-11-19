@@ -31,7 +31,7 @@ Out of scope for MVP:
 ## 3. Technology Baseline
 
 - Frontend: React + TypeScript + Tailwind CSS
-- Backend: Python (FastAPI or Django — final choice deferred)
+- Backend: Python, Django + Django REST Framework (decided; implementation started 2026-11-18)
 - Database: PostgreSQL
 - Language and layout: Farsi (Persian), right-to-left (RTL)
 - Calendar: Jalali for scheduling and display; Gregorian internally where needed
@@ -279,7 +279,6 @@ Provisional (requires validation):
 - Supervisor co-signing or supervisory review permission.
 - Therapist access to full content of their own authored notes after reassignment (current default: granted via authored-records view with safeguards; requires practitioner and legal/professional validation).
 - Break-glass authorization and review mechanism design.
-- Backend framework choice (FastAPI vs Django).
 - Deployment topology.
 - Backup and recovery objectives.
 - Audit-log retention period and exact event set.
@@ -311,7 +310,7 @@ Required before production:
 
 ## 14. Open Questions
 
-1. Backend framework: FastAPI or Django? Criteria: team familiarity, admin tooling, async needs, ORM maturity, long-term maintainability.
+1. Backend framework: resolved, Django + Django REST Framework.
 2. Deployment topology for MVP.
 3. Backup and recovery objectives.
 4. Audit-log retention policy and exact event set.

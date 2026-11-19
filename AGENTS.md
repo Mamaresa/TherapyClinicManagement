@@ -137,3 +137,4 @@ On the command "generate handover", create a comprehensive HANDOVER.md documenti
 Append-only, brief entries. Format: date, actor, event.
 
 - 2026-10-16: features.md approved and finalized at project root. Specification phase complete. Backend framework and initial-commit strategy pending Operator decision.
+- 2026-11-19, Claude: fixed review issues N1 (separate owner/runtime database roles), N2 (tenant-scoped API reads), N3 (no self-escalation; audited role, grant and assignment changes), N4 (clinical_supervision is the only supervision record). Backend is Django + DRF on PostgreSQL 17. 63 tests pass. Not committed; awaiting Operator review.

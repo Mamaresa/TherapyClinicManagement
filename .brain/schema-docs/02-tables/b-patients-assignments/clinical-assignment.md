@@ -4,7 +4,7 @@
 
 > `clinical_assignment` · Group B: patients, assignments, supervision
 
-**Purpose:** records which therapist (and optional supervisor) is responsible for a patient, in which role, and for what period. Implements D-N5, D-N8 and X-1.
+**Purpose:** records which therapist is responsible for a patient, in which role, and for what period. Implements D-N5, D-N8 and X-1. Supervision is not stored here; ClinicalSupervision is its only source of truth (issue N4).
 
 ```sql
 CREATE TABLE clinical_assignment (
@@ -14,7 +14,6 @@ CREATE TABLE clinical_assignment (
     therapist_membership_id UUID NOT NULL,
     role_in_case            TEXT NOT NULL
                             CHECK (role_in_case IN ('primary','co_therapist','observing')),
-    supervisor_membership_id UUID,
     started_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     ended_at                TIMESTAMPTZ,
     CONSTRAINT fk_ca_patient
@@ -22,9 +21,6 @@ CREATE TABLE clinical_assignment (
         REFERENCES patient (id, tenant_id) ON DELETE RESTRICT,
     CONSTRAINT fk_ca_therapist
         FOREIGN KEY (therapist_membership_id, tenant_id)
-        REFERENCES tenant_membership (id, tenant_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_ca_supervisor
-        FOREIGN KEY (supervisor_membership_id, tenant_id)
         REFERENCES tenant_membership (id, tenant_id) ON DELETE RESTRICT,
     CONSTRAINT ck_ca_dates CHECK (ended_at IS NULL OR ended_at >= started_at),
     CONSTRAINT uq_ca_id_patient_tenant UNIQUE (id, patient_id, tenant_id)
@@ -37,9 +33,6 @@ CREATE UNIQUE INDEX uq_ca_active_pair
     WHERE ended_at IS NULL;
 CREATE INDEX ix_ca_therapist_active
     ON clinical_assignment (therapist_membership_id, ended_at);
-CREATE INDEX ix_ca_supervisor_active
-    ON clinical_assignment (supervisor_membership_id, ended_at)
-    WHERE supervisor_membership_id IS NOT NULL;
 ```
 
 **Role values**
@@ -52,15 +45,15 @@ CREATE INDEX ix_ca_supervisor_active
 
 **Constraints and indexes explained**
 
-- Three composite FKs ensure the patient, the therapist and the supervisor all belong to the same tenant as the assignment.
+- Two composite FKs ensure the patient and the therapist belong to the same tenant as the assignment.
 - `uq_ca_one_active_primary`: **at most one active primary** per patient. Because the index is partial (`role_in_case = 'primary' AND ended_at IS NULL`), historical primaries are unrestricted. Note that it enforces "at most one", while the ER notes say "exactly one". The "at least one" half is not enforced by the schema.
 - `uq_ca_active_pair`: the same therapist cannot hold two active assignments on one patient.
-- `ix_ca_therapist_active`, `ix_ca_supervisor_active`: speed up "which patients does this therapist or supervisor have?".
+- `ix_ca_therapist_active`: speeds up "which patients does this therapist have?".
 - `uq_ca_id_patient_tenant`: reserved for future composite FKs. **No table currently references it** (a note-to-assignment link could use it later).
 
 **Design notes**
 
-- When `supervisor_membership_id` is `NULL`, `MATCH SIMPLE` skips the supervisor FK. That is correct.
+- **No supervisor column (issue N4, 2026-11-18).** The earlier `supervisor_membership_id` column duplicated `clinical_supervision` and was removed. Clinical supervision is recorded only in `clinical_supervision`.
 - **Insert-only, with one allowed update.** Rows are never edited; the only permitted mutation is setting `ended_at` once. Enforcing "once" requires a trigger (Section 12 in Part 2 of the source; the trigger is `enforce_assignment_ended_once`, [trigger summary](../../03-enforcement/triggers/README.md)).
 - **Reassignment** is done by ending the old row and inserting a new one, which preserves the history that decisions D2 and D3 rely on.
 - Nothing in the schema checks that the assigned therapist actually holds the `therapist` role in `tenant_membership.roles`. That is an application rule.

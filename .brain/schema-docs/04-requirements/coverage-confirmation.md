@@ -24,7 +24,7 @@ All relationships in the ER diagram (Part 1, Section 1, which is the [ER diagram
 | TenantMembership–MembershipGrant | membership_grant.membership_id + tenant_id |
 | Tenant–Patient | patient.tenant_id → tenant.id |
 | Patient–ClinicalAssignment | clinical_assignment.patient_id + tenant_id |
-| TenantMembership–ClinicalAssignment | clinical_assignment.therapist_membership_id + tenant_id, and supervisor_membership_id + tenant_id |
+| TenantMembership–ClinicalAssignment | clinical_assignment.therapist_membership_id + tenant_id |
 | Patient–ClinicalSupervision | clinical_supervision.patient_id + tenant_id |
 | TenantMembership–ClinicalSupervision | clinical_supervision.supervisor_membership_id + tenant_id, and therapist_membership_id + tenant_id |
 | TenantMembership–SupervisoryOperationalScope | supervisory_operational_scope.supervisor_membership_id and supervisee_membership_id, both + tenant_id |

@@ -2,7 +2,7 @@
 
 This folder is the schema design split into small linked files: **one file per table**, one per trigger, and one per topic. Nothing was removed or summarized; every definition and note from the two source messages (Actor Response 61 and 62) is kept, and explanations were added around them.
 
-> **Status:** design text only. No Django models, migrations, SQL files or implementation code have been created. Django's ORM cannot express composite foreign keys natively, so any implementation needs explicit SQL migrations.
+> **Status:** design text. Implementation has started (2026-11-18); see backend/README.md for database roles, privileges and tenant isolation as implemented, which take precedence over this folder where they differ. Django's ORM cannot express composite foreign keys natively, so they are added with SQL migrations.
 
 Target database: PostgreSQL. 25 tables in 9 groups.
 
@@ -39,7 +39,7 @@ Target database: PostgreSQL. 25 tables in 9 groups.
 ### [Group B: patients, assignments, supervision](02-tables/b-patients-assignments/README.md)
 
 - [Patient](02-tables/b-patients-assignments/patient.md) (`patient`): the person receiving care at one clinic. Clinic-scoped identity (D1).
-- [ClinicalAssignment](02-tables/b-patients-assignments/clinical-assignment.md) (`clinical_assignment`): records which therapist (and optional supervisor) is responsible for a patient, in which role, and for what period. Implements D-N5, D-N8 and X-1.
+- [ClinicalAssignment](02-tables/b-patients-assignments/clinical-assignment.md) (`clinical_assignment`): records which therapist is responsible for a patient, in which role, and for what period. Implements D-N5, D-N8 and X-1. Supervision is not stored here; ClinicalSupervision is its only source of truth (issue N4).
 - [ClinicalSupervision](02-tables/b-patients-assignments/clinical-supervision.md) (`clinical_supervision`): gives a supervisor clinical access to **one specific patient** supervised through a specific therapist (D9, X-4 part 1).
 - [SupervisoryOperationalScope](02-tables/b-patients-assignments/supervisory-operational-scope.md) (`supervisory_operational_scope`): gives a supervisor **operational** oversight (demographics, appointments) over a supervisee's patients, without clinical access (D9, X-4 part 2).
 
